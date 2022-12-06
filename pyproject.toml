@@ -1,6 +1,7 @@
 [tool.poetry]
 name = "whistle-detection"
 version = "0.1.0"
+license = "MIT"
 description = "PyTorch implementation of a whistle sound detection"
 authors = ["Your Name <you@example.com>"]
 readme = "README.md"
