@@ -14,8 +14,8 @@ from torch.nn import BCELoss
 from torchvision import models
 import torch.nn as nn
 
-from whistle_detection.dataset import AudioDataset
-from whistle_detection.utils import print_environment_info, provide_determinisim
+from dataset import AudioDataset
+from utils import print_environment_info, provide_determinisim
 
 def run():
     print_environment_info()
@@ -51,7 +51,7 @@ def run():
     validation_dataset = AudioDataset(args.dataset_path, args.sample_rate, args.chunk_duration, train_mode=False, train_test_split=args.train_test_split)
     validation_dataloader = DataLoader(validation_dataset, batch_size=64, shuffle=False, num_workers=args.n_cpu)
 
-    model = models.restnet18(weights='ResNet18_Weights.DEFAULT')
+    model = models.resnet18(weights='ResNet18_Weights.DEFAULT')
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs, 1)
 
@@ -68,50 +68,50 @@ def run():
     for epoch in range(1, args.epochs+1):
         model.train()
 
-    for batch_i, (spectograms, labels) in enumerate(tqdm.tqdm(train_dataloader, desc=f"Training Epoch {epoch}")):
-        spectograms = Variable(spectograms.to(device, non_blocking=True))
-        labels = Variable(labels.to(device), requires_grad=False)
+        for batch_i, (spectograms, labels) in enumerate(tqdm.tqdm(train_dataloader, desc=f"Training Epoch {epoch}")):
+            spectograms = Variable(spectograms.to(device, non_blocking=True))
+            labels = Variable(labels.to(device), requires_grad=False)
 
-        outputs = model(spectograms)
+            outputs = model(spectograms)
 
-        loss = BCELoss(outputs, labels)
-        loss.backward()
+            loss = BCELoss(outputs, labels)
+            loss.backward()
 
-        wandb.log({"train_loss": loss.item()})
-        print(f"Epoch {epoch}/{args.epochs} Loss {loss.item()}")
+            wandb.log({"train_loss": loss.item()})
+            print(f"Epoch {epoch}/{args.epochs} Loss {loss.item()}")
 
-        ###############
-        # Run optimizer
-        ###############
+            ###############
+            # Run optimizer
+            ###############
 
-        optimizer.step()
-        optimizer.zero_grad()
+            optimizer.step()
+            optimizer.zero_grad()
 
-        # #############
-        # Save progress
-        # #############
+            # #############
+            # Save progress
+            # #############
 
-        # Save model to checkpoint file
-        if epoch % args.checkpoint_interval == 0:
-            checkpoint_path = os.path.join(args.checkpoint_dir, f"checkpoint_epoch_{epoch}.pth")
-            print(f"---- Saving checkpoint to: '{checkpoint_path}' ----")
-            torch.save(model.state_dict(), checkpoint_path)
+            # Save model to checkpoint file
+            if epoch % args.checkpoint_interval == 0:
+                checkpoint_path = os.path.join(args.checkpoint_dir, f"checkpoint_epoch_{epoch}.pth")
+                print(f"---- Saving checkpoint to: '{checkpoint_path}' ----")
+                torch.save(model.state_dict(), checkpoint_path)
 
-        # ########
-        # Evaluate
-        # ########
+            # ########
+            # Evaluate
+            # ########
 
-        if epoch % args.evaluation_interval == 0:
-            # Evaluate the model on the validation set
-            metrics_output = evaluate(
-                model,
-                validation_dataloader,
-                args.conf_thres,
-            )
+            if epoch % args.evaluation_interval == 0:
+                # Evaluate the model on the validation set
+                metrics_output = evaluate(
+                    model,
+                    validation_dataloader,
+                    args.conf_thres,
+                )
 
-            wandb.log(metrics_output)
-            print(f'---- Evaluation metrics: {metrics_output} ----')
-    
+                wandb.log(metrics_output)
+                print(f'---- Evaluation metrics: {metrics_output} ----')
+        
 
 
 def evaluate(model, dataloader, conf_thres):

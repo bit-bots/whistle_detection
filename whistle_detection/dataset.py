@@ -12,7 +12,7 @@ class AudioDataset(Dataset):
         self.target_sample_rate = target_sample_rate
         self.chunk_duration = chunk_duration
         # dict of file name to tuple of waveform and sample rate
-        self.audio = {filename: self.resample(*torchaudio.load(filename)) for filename in self.database.keys()}
+        self.audio = {filename: self.resample(*torchaudio.load(os.path.join(self.folder, filename))) for filename in self.database.keys()}
 
     def load_database(self, database_path, train_mode, train_test_split):
         database = json.load(open(database_path, 'r'))
@@ -31,14 +31,14 @@ class AudioDataset(Dataset):
 
     def __len__(self):
         total_samples = 0
-        for waveform, _ in self.audio.values():
+        for waveform in self.audio.values():
             total_samples += waveform.shape[1]
-        duration = total_samples / self.target_sample_rate
+        duration = total_samples // self.target_sample_rate
         return duration // self.chunk_duration
     
     def get_whistle_labels(self, filename):
         file_data = self.database[filename]
-        return file_data['channels'][0]['whistleLabels']
+        return file_data[0]['whistleLabels']
     
     def get_label(self, filename, start):
         end = start + self.chunk_duration
@@ -49,7 +49,7 @@ class AudioDataset(Dataset):
         return False
 
     def __getitem__(self, _):
-        filename = random.choice(self.audio.keys())
+        filename = random.choice(list(self.audio.keys()))
         waveform = self.audio[filename]
         start_pos = random.randint(0, waveform.shape[1] - self.target_sample_rate * self.chunk_duration)
         chunk = waveform[:, start_pos:start_pos + self.target_sample_rate * self.chunk_duration]
