@@ -18,6 +18,8 @@ class AudioDataset(Dataset):
         database = json.load(open(database_path, 'r'))
         split_index = math.floor(len(database['audioFiles']) * train_test_split)
 
+        # TODO: Randomly shuffle files before split
+
         if train_mode:
             files = database['audioFiles'][:split_index]
         else:

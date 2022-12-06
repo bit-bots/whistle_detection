@@ -45,6 +45,8 @@ def run():
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
+    # TODO: Each worker needs to be initialized with same randomness (see https://github.com/bit-bots/YOEO/blob/0c9a40ef5393752873c1d8cc4a15b5f99b85f00e/yoeo/train.py#L59)
+
     train_dataset = AudioDataset(args.dataset_path, args.sample_rate, args.chunk_duration, train_mode=True, train_test_split=args.train_test_split)
     train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=False, num_workers=args.n_cpu)
 
