@@ -7,7 +7,7 @@ import numpy as np
 def print_environment_info():
     """
     Prints infos about the environment and the system.
-    This should help when people make issues containg the printout.
+    This should help when people make issues containing the printout.
     """
 
     print("Environment information:")
@@ -30,7 +30,7 @@ def print_environment_info():
         print("No git or repo found")
 
 
-def provide_determinisim(seed=42):
+def provide_determinism(seed=42):
     random.seed(seed)
     torch.manual_seed(seed)
     torch.cuda.manual_seed_all(seed)
