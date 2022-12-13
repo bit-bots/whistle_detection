@@ -1,9 +1,8 @@
 data/
 processed/
-env/
+/wandb
+/checkpoints
 
 .DS_Store
 
 __pycache__
-
-/wandb
