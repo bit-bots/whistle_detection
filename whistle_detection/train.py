@@ -10,12 +10,13 @@ import torch
 from torch.utils.data import DataLoader
 import torch.optim as optim
 from torch.autograd import Variable
-from torch.nn import BCELoss
+from torch.nn import BCEWithLogitsLoss
 from torchvision import models
 import torch.nn as nn
 
 from dataset import AudioDataset
 from utils import print_environment_info, provide_determinisim
+from whistle_detection.utils import worker_seed_set
 
 def run():
     print_environment_info()
@@ -30,7 +31,7 @@ def run():
     parser.add_argument("--train_test_split", type=float, default=0.8, help="Fraction of dataset to use for training")
     parser.add_argument("--evaluation_interval", type=int, default=1, help="Interval of epochs between evaluations on validation set")
     parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate")
-    parser.add_argument("--conf_thres", type=float, default=0.1, help="Evaluation: Object confidence threshold")
+    parser.add_argument("--conf_thres", type=float, default=0.9, help="Evaluation: Object confidence threshold")
     parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
     parser.add_argument("--sample_rate", type=int, default=10_000, help="Targeted sample rate of the audio files")
     parser.add_argument("--chunk_duration", type=int, default=1, help="Duration of the chunks in seconds")
@@ -44,14 +45,13 @@ def run():
     os.makedirs(args.checkpoint_dir, exist_ok=True)
 
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-
-    # TODO: Each worker needs to be initialized with same randomness (see https://github.com/bit-bots/YOEO/blob/0c9a40ef5393752873c1d8cc4a15b5f99b85f00e/yoeo/train.py#L59)
+    bce = BCEWithLogitsLoss()
 
     train_dataset = AudioDataset(args.dataset_path, args.sample_rate, args.chunk_duration, train_mode=True, train_test_split=args.train_test_split)
-    train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=False, num_workers=args.n_cpu)
+    train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=False, num_workers=args.n_cpu, worker_init_fn=worker_seed_set)
 
     validation_dataset = AudioDataset(args.dataset_path, args.sample_rate, args.chunk_duration, train_mode=False, train_test_split=args.train_test_split)
-    validation_dataloader = DataLoader(validation_dataset, batch_size=64, shuffle=False, num_workers=args.n_cpu)
+    validation_dataloader = DataLoader(validation_dataset, batch_size=64, shuffle=False, num_workers=args.n_cpu, worker_init_fn=worker_seed_set)
 
     model = models.resnet18(weights='ResNet18_Weights.DEFAULT')
     num_ftrs = model.fc.in_features
@@ -72,15 +72,14 @@ def run():
 
         for batch_i, (spectograms, labels) in enumerate(tqdm.tqdm(train_dataloader, desc=f"Training Epoch {epoch}")):
             spectograms = Variable(spectograms.to(device, non_blocking=True))
-            labels = Variable(labels.to(device), requires_grad=False)
+            labels = Variable(labels.to(device), requires_grad=False).float()
 
-            outputs = model(spectograms)
+            outputs = model(spectograms).squeeze()
 
-            loss = BCELoss(outputs, labels)
+            loss = bce(outputs, labels)
             loss.backward()
 
             wandb.log({"train_loss": loss.item()})
-            print(f"Epoch {epoch}/{args.epochs} Loss {loss.item()}")
 
             ###############
             # Run optimizer
@@ -89,30 +88,26 @@ def run():
             optimizer.step()
             optimizer.zero_grad()
 
-            # #############
-            # Save progress
-            # #############
+        # #############
+        # Save progress
+        # #############
 
-            # Save model to checkpoint file
-            if epoch % args.checkpoint_interval == 0:
-                checkpoint_path = os.path.join(args.checkpoint_dir, f"checkpoint_epoch_{epoch}.pth")
-                print(f"---- Saving checkpoint to: '{checkpoint_path}' ----")
-                torch.save(model.state_dict(), checkpoint_path)
+        # Save model to checkpoint file
+        if epoch % args.checkpoint_interval == 0:
+            checkpoint_path = os.path.join(args.checkpoint_dir, f"checkpoint_epoch_{epoch}.pth")
+            print(f"---- Saving checkpoint to: '{checkpoint_path}' ----")
+            torch.save(model.state_dict(), checkpoint_path)
 
-            # ########
-            # Evaluate
-            # ########
+        # ########
+        # Evaluate
+        # ########
 
-            if epoch % args.evaluation_interval == 0:
-                # Evaluate the model on the validation set
-                metrics_output = evaluate(
-                    model,
-                    validation_dataloader,
-                    args.conf_thres,
-                )
+        if epoch % args.evaluation_interval == 0:
+            # Evaluate the model on the validation set
+            metrics_output = {"mean": evaluate(model, validation_dataloader, args.conf_thres)}
 
-                wandb.log(metrics_output)
-                print(f'---- Evaluation metrics: {metrics_output} ----')
+            wandb.log(metrics_output)
+            print(f'---- Evaluation metrics: {metrics_output} ----')
         
 
 
@@ -123,9 +118,9 @@ def evaluate(model, dataloader, conf_thres):
         spectograms = Variable(spectograms, requires_grad=False)
 
         with torch.no_grad():
-            outputs = model(spectograms)
+            outputs = model(spectograms).squeeze()
 
-        return labels.eq(outputs > conf_thres).mean()
+        return labels.eq(outputs >= conf_thres).float().mean()
 
 if __name__ == "__main__":
     run()

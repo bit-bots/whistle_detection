@@ -18,12 +18,13 @@ class AudioDataset(Dataset):
         database = json.load(open(database_path, 'r'))
         split_index = math.floor(len(database['audioFiles']) * train_test_split)
 
-        # TODO: Randomly shuffle files before split
+        shuffled_files = database['audioFiles'].copy()
+        random.shuffle(shuffled_files)
 
         if train_mode:
-            files = database['audioFiles'][:split_index]
+            files = shuffled_files[:split_index]
         else:
-            files = database['audioFiles'][split_index:]
+            files = shuffled_files[split_index:]
 
         return {audio_file["path"]: audio_file["channels"] for audio_file in files}
 
@@ -43,10 +44,10 @@ class AudioDataset(Dataset):
         return file_data[0]['whistleLabels']
     
     def get_label(self, filename, start):
-        end = start + self.chunk_duration
+        end = start + self.chunk_duration * self.target_sample_rate
         for label in self.get_whistle_labels(filename):
-            if not label['start'] < start and label['end'] < start \
-                or label['start'] > end and label['end'] > end:
+            if not (label['start'] < start and label['end'] < start \
+                or label['start'] > end and label['end'] > end):
                 return True
         return False
 
@@ -57,6 +58,10 @@ class AudioDataset(Dataset):
         chunk = waveform[:, start_pos:start_pos + self.target_sample_rate * self.chunk_duration]
         label = self.get_label(filename, start_pos)
 
-        mel_spectrogram = torchaudio.transforms.MelSpectrogram(self.target_sample_rate)(chunk)
+        # Repeat the mel spectrogram 3 times to match the number of channels to the expected input of the model
+        mel_spectrogram = torchaudio.transforms.MelSpectrogram(self.target_sample_rate, n_mels=64)(chunk) \
+            .log2() \
+            .repeat(3, 1, 1)
+
 
         return mel_spectrogram, label

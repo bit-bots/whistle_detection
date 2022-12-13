@@ -96,7 +96,7 @@ All recordings get resampled to a configurable sample rate by our dataloader.
 Training epochs are not deterministic, but the same number of random chunks get selected from the whole dataset on the fly.
 Random waveform chunks (of configurable duration) get selected from the recording files.
 This can be seeded, to provide determinism between runs.
-A train/test-split can be configured, which splits the list of recoding files, such that always (persistent over all epochs) the first `n%` of files will be used for training, the remaining files will be used for validation. (TODO: shuffle this)
+A train/test-split can be configured, which splits the list of recoding files, such that always (persistent over all epochs) the first `n%` of shuffled files will be used for training, the remaining files will be used for validation.
 The waveform chunks get transformed to their Mel-Spectrogram (image) to be fed as an input to the neural network.
 As a neural network architecture, we use a `ResNet18`, where the last layer is replaced by a linear layer, which finally outputs a single value between 0 and 1.
 Using a configurable confidence threshold, this value can be converted to a single binary value, representing whether a whistle sound was detected during the audio chunk.
