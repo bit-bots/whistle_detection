@@ -63,5 +63,4 @@ class AudioDataset(Dataset):
             .log2() \
             .repeat(3, 1, 1)
 
-
         return mel_spectrogram, label

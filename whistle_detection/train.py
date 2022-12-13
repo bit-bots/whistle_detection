@@ -31,7 +31,7 @@ def run():
     parser.add_argument("--train_test_split", type=float, default=0.8, help="Fraction of dataset to use for training")
     parser.add_argument("--evaluation_interval", type=int, default=1, help="Interval of epochs between evaluations on validation set")
     parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate")
-    parser.add_argument("--conf_thres", type=float, default=0.9, help="Evaluation: Object confidence threshold")
+    parser.add_argument("--conf_thres", type=float, default=0.5, help="Evaluation: Object confidence threshold")
     parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
     parser.add_argument("--sample_rate", type=int, default=10_000, help="Targeted sample rate of the audio files")
     parser.add_argument("--chunk_duration", type=int, default=1, help="Duration of the chunks in seconds")
@@ -56,6 +56,7 @@ def run():
     model = models.resnet18(weights='ResNet18_Weights.DEFAULT')
     num_ftrs = model.fc.in_features
     model.fc = nn.Linear(num_ftrs, 1)
+    model = model.to(device)
 
     params = [p for p in model.parameters() if p.requires_grad]
 
@@ -72,7 +73,7 @@ def run():
 
         for batch_i, (spectograms, labels) in enumerate(tqdm.tqdm(train_dataloader, desc=f"Training Epoch {epoch}")):
             spectograms = Variable(spectograms.to(device, non_blocking=True))
-            labels = Variable(labels.to(device), requires_grad=False).float()
+            labels = Variable(labels.float().to(device), requires_grad=False)
 
             outputs = model(spectograms).squeeze()
 
@@ -104,18 +105,19 @@ def run():
 
         if epoch % args.evaluation_interval == 0:
             # Evaluate the model on the validation set
-            metrics_output = {"mean": evaluate(model, validation_dataloader, args.conf_thres)}
+            metrics_output = {"mean": evaluate(model, validation_dataloader, args.conf_thres, device)}
 
             wandb.log(metrics_output)
             print(f'---- Evaluation metrics: {metrics_output} ----')
         
 
 
-def evaluate(model, dataloader, conf_thres):
+def evaluate(model, dataloader, conf_thres, device):
     model.eval()
 
     for spectograms, labels in tqdm.tqdm(dataloader, desc="Validating"):
-        spectograms = Variable(spectograms, requires_grad=False)
+        spectograms = Variable(spectograms.to(device), requires_grad=False)
+        labels = Variable(labels.float().to(device), requires_grad=False)
 
         with torch.no_grad():
             outputs = model(spectograms).squeeze()
