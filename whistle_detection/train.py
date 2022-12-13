@@ -2,7 +2,6 @@ import argparse
 import os
 
 import tqdm
-import wandb
 
 import torch
 from torch.utils.data import DataLoader
@@ -33,28 +32,32 @@ def run():
     parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducible. Set -1 to disable.")
     parser.add_argument("--sample_rate", type=int, default=10_000, help="Targeted sample rate of the audio files")
     parser.add_argument("--chunk_duration", type=int, default=1, help="Duration of the chunks in seconds")
+    parser.add_argument("--disable_wandb", action="store_true", help="Disable weights and biases (wandb) logging")
     args = parser.parse_args()
     print(args)
+    
+    if not args.disable_wandb:
+        import wandb
+        wandb.init(project="bitbots_whistle_detection", entity="bitbots", config={
+            "dataset_path" : args.dataset_path,
+            "epochs" : args.epochs,
+            "n_cpu" : args.n_cpu,
+            "batch_size" : args.batch_size,
+            "checkpoint_interval" : args.checkpoint_interval,
+            "checkpoint_dir" : args.checkpoint_dir,
+            "train_test_split" : args.train_test_split,
+            "evaluation_interval" : args.evaluation_interval,
+            "learning_rate" : args.learning_rate,
+            "conf_threshold" : args.conf_threshold,
+            "seed" : args.seed,
+            "sample_rate" : args.sample_rate,
+            "chunk_duration" : args.chunk_duration,
+            }
+        )
 
     if args.seed != -1:
         provide_determinism(args.seed)
 
-    wandb.init(project="bitbots_whistle_detection", entity="bitbots", config={
-        "dataset_path" : args.dataset_path,
-        "epochs" : args.epochs,
-        "n_cpu" : args.n_cpu,
-        "batch_size" : args.batch_size,
-        "checkpoint_interval" : args.checkpoint_interval,
-        "checkpoint_dir" : args.checkpoint_dir,
-        "train_test_split" : args.train_test_split,
-        "evaluation_interval" : args.evaluation_interval,
-        "learning_rate" : args.learning_rate,
-        "conf_threshold" : args.conf_threshold,
-        "seed" : args.seed,
-        "sample_rate" : args.sample_rate,
-        "chunk_duration" : args.chunk_duration,
-        }
-    )
 
     os.makedirs(args.checkpoint_dir, exist_ok=True)
 
@@ -94,7 +97,7 @@ def run():
             loss = bce(outputs, labels)
             loss.backward()
 
-            wandb.log({"train_loss": loss.item()})
+            if not args.disable_wandb: wandb.log({"train_loss": loss.item()})
 
             ###############
             # Run optimizer
@@ -121,7 +124,7 @@ def run():
             # Evaluate the model on the validation set
             metrics_output = {"mean": evaluate(model, validation_dataloader, args.conf_threshold, device)}
 
-            wandb.log(metrics_output)
+            if not args.disable_wandb: wandb.log(metrics_output)
             print(f'---- Evaluation metrics: {metrics_output} ----')
 
 
