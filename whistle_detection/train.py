@@ -1,19 +1,19 @@
 import argparse
 import os
 
-import tqdm
-
 import torch
-from torch.utils.data import DataLoader
+import torch.nn as nn
 import torch.optim as optim
+import tqdm
+from dataset import AudioDataset
 from torch.autograd import Variable
 from torch.nn import BCEWithLogitsLoss
+from torch.utils.data import DataLoader
 from torchvision import models
-import torch.nn as nn
-
-from dataset import AudioDataset
 from utils import print_environment_info, provide_determinism
+
 from whistle_detection.utils import worker_seed_set
+
 
 def run():
     print_environment_info()
@@ -88,11 +88,11 @@ def run():
     for epoch in range(1, args.epochs+1):
         model.train()
 
-        for batch_i, (spectrograms, labels) in enumerate(tqdm.tqdm(train_dataloader, desc=f"Training Epoch {epoch}")):
-            spectrograms = Variable(spectrograms.to(device, non_blocking=True))
+        for batch_i, (spectograms, labels) in enumerate(tqdm.tqdm(train_dataloader, desc=f"Training Epoch {epoch}")):
+            spectograms = Variable(spectograms.to(device, non_blocking=True))
             labels = Variable(labels.float().to(device), requires_grad=False)
 
-            outputs = model(spectrograms).squeeze()
+            outputs = model(spectograms).squeeze()
 
             loss = bce(outputs, labels)
             loss.backward()
@@ -131,12 +131,12 @@ def run():
 def evaluate(model, dataloader, conf_threshold, device):
     model.eval()
 
-    for spectrograms, labels in tqdm.tqdm(dataloader, desc="Validating"):
-        spectrograms = Variable(spectrograms.to(device), requires_grad=False)
+    for spectograms, labels in tqdm.tqdm(dataloader, desc="Validating"):
+        spectograms = Variable(spectograms.to(device), requires_grad=False)
         labels = Variable(labels.float().to(device), requires_grad=False)
 
         with torch.no_grad():
-            outputs = model(spectrograms).squeeze()
+            outputs = model(spectograms).squeeze()
 
         return float(labels.eq(outputs >= conf_threshold).float().mean())
 
