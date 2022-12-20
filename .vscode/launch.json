@@ -1,0 +1,23 @@
+{
+    // Use IntelliSense to learn about possible attributes.
+    // Hover to view descriptions of existing attributes.
+    // For more information, visit: https://go.microsoft.com/fwlink/?linkid=830387
+    // Launch file train.py with arguments
+    "version": "0.2.0",
+    "configurations": [
+        {
+            "name": "Python: train.py",
+            "type": "python",
+            "request": "launch",
+            "program": "whistle_detection/train.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "data/whistledb.json",
+                "--seed=42",
+                "--n_cpu=2",
+                "--batch_size=4",
+            ]
+        }
+    ]
+}

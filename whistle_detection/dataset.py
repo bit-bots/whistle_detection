@@ -6,7 +6,8 @@ import random
 import math
 
 class AudioDataset(Dataset):
-    def __init__(self, database_path, target_sample_rate=10_000, chunk_duration=1, train_mode=True, train_test_split=0.8):
+    def __init__(self, database_path, target_sample_rate=10_000, chunk_duration=1, train_mode=True, train_test_split=0.8, seed=-1):
+        random.seed(seed)
         self.database = self.load_database(database_path, train_mode, train_test_split)
         self.folder = os.path.dirname(database_path)
         self.target_sample_rate = target_sample_rate

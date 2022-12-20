@@ -47,11 +47,11 @@ def run():
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     bce = BCEWithLogitsLoss()
 
-    train_dataset = AudioDataset(args.dataset_path, args.sample_rate, args.chunk_duration, train_mode=True, train_test_split=args.train_test_split)
-    train_dataloader = DataLoader(train_dataset, batch_size=64, shuffle=False, num_workers=args.n_cpu, worker_init_fn=worker_seed_set)
+    train_dataset = AudioDataset(args.dataset_path, args.sample_rate, args.chunk_duration, train_mode=True, train_test_split=args.train_test_split, seed=args.seed)
+    train_dataloader = DataLoader(train_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.n_cpu, worker_init_fn=worker_seed_set)
 
-    validation_dataset = AudioDataset(args.dataset_path, args.sample_rate, args.chunk_duration, train_mode=False, train_test_split=args.train_test_split)
-    validation_dataloader = DataLoader(validation_dataset, batch_size=64, shuffle=False, num_workers=args.n_cpu, worker_init_fn=worker_seed_set)
+    validation_dataset = AudioDataset(args.dataset_path, args.sample_rate, args.chunk_duration, train_mode=False, train_test_split=args.train_test_split, seed=args.seed)
+    validation_dataloader = DataLoader(validation_dataset, batch_size=args.batch_size, shuffle=False, num_workers=args.n_cpu, worker_init_fn=worker_seed_set)
 
     model = models.resnet18(weights='ResNet18_Weights.DEFAULT')
     num_ftrs = model.fc.in_features
