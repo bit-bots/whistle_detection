@@ -2,16 +2,15 @@ import argparse
 import os
 
 import torch
-import torch.nn as nn
 import torch.optim as optim
 import tqdm
 from dataset import AudioDataset
 from torch.autograd import Variable
 from torch.nn import BCEWithLogitsLoss
 from torch.utils.data import DataLoader
-from torchvision import models
 from utils import print_environment_info, provide_determinism
 
+from whistle_detection.model import get_model
 from whistle_detection.utils import worker_seed_set
 
 
@@ -152,10 +151,7 @@ def run():
         worker_init_fn=worker_seed_set,
     )
 
-    model = models.resnet18(weights="ResNet18_Weights.DEFAULT")
-    num_ftrs = model.fc.in_features
-    model.fc = nn.Linear(num_ftrs, 1)
-    model = model.to(device)
+    model = get_model(device)
 
     params = [p for p in model.parameters() if p.requires_grad]
 
