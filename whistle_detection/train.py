@@ -1,10 +1,7 @@
-#! /usr/bin/python3
-
 import argparse
 import os
 
 import tqdm
-import wandb
 
 import torch
 from torch.utils.data import DataLoader
@@ -15,7 +12,7 @@ from torchvision import models
 import torch.nn as nn
 
 from dataset import AudioDataset
-from utils import print_environment_info, provide_determinisim
+from utils import print_environment_info, provide_determinism
 from whistle_detection.utils import worker_seed_set
 
 def run():
@@ -31,16 +28,36 @@ def run():
     parser.add_argument("--train_test_split", type=float, default=0.8, help="Fraction of dataset to use for training")
     parser.add_argument("--evaluation_interval", type=int, default=1, help="Interval of epochs between evaluations on validation set")
     parser.add_argument("--learning_rate", type=float, default=0.001, help="Learning rate")
-    parser.add_argument("--conf_thres", type=float, default=0.5, help="Evaluation: Object confidence threshold")
-    parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducable. Set -1 to disable.")
+    parser.add_argument("--conf_threshold", type=float, default=0.5, help="Evaluation: Object confidence threshold")
+    parser.add_argument("--seed", type=int, default=-1, help="Makes results reproducible. Set -1 to disable.")
     parser.add_argument("--sample_rate", type=int, default=10_000, help="Targeted sample rate of the audio files")
     parser.add_argument("--chunk_duration", type=int, default=1, help="Duration of the chunks in seconds")
+    parser.add_argument("--disable_wandb", action="store_true", help="Disable weights and biases (wandb) logging")
     args = parser.parse_args()
+    print(args)
+    
+    if not args.disable_wandb:
+        import wandb
+        wandb.init(project="bitbots_whistle_detection", entity="bitbots", config={
+            "dataset_path" : args.dataset_path,
+            "epochs" : args.epochs,
+            "n_cpu" : args.n_cpu,
+            "batch_size" : args.batch_size,
+            "checkpoint_interval" : args.checkpoint_interval,
+            "checkpoint_dir" : args.checkpoint_dir,
+            "train_test_split" : args.train_test_split,
+            "evaluation_interval" : args.evaluation_interval,
+            "learning_rate" : args.learning_rate,
+            "conf_threshold" : args.conf_threshold,
+            "seed" : args.seed,
+            "sample_rate" : args.sample_rate,
+            "chunk_duration" : args.chunk_duration,
+            }
+        )
 
     if args.seed != -1:
-        provide_determinisim(args.seed)
+        provide_determinism(args.seed)
 
-    wandb.init(project="bitbots-whistle-detection")
 
     os.makedirs(args.checkpoint_dir, exist_ok=True)
 
@@ -71,16 +88,16 @@ def run():
     for epoch in range(1, args.epochs+1):
         model.train()
 
-        for batch_i, (spectograms, labels) in enumerate(tqdm.tqdm(train_dataloader, desc=f"Training Epoch {epoch}")):
-            spectograms = Variable(spectograms.to(device, non_blocking=True))
+        for batch_i, (spectrograms, labels) in enumerate(tqdm.tqdm(train_dataloader, desc=f"Training Epoch {epoch}")):
+            spectrograms = Variable(spectrograms.to(device, non_blocking=True))
             labels = Variable(labels.float().to(device), requires_grad=False)
 
-            outputs = model(spectograms).squeeze()
+            outputs = model(spectrograms).squeeze()
 
             loss = bce(outputs, labels)
             loss.backward()
 
-            wandb.log({"train_loss": loss.item()})
+            if not args.disable_wandb: wandb.log({"train_loss": loss.item()})
 
             ###############
             # Run optimizer
@@ -105,24 +122,23 @@ def run():
 
         if epoch % args.evaluation_interval == 0:
             # Evaluate the model on the validation set
-            metrics_output = {"mean": evaluate(model, validation_dataloader, args.conf_thres, device)}
+            metrics_output = {"mean": evaluate(model, validation_dataloader, args.conf_threshold, device)}
 
-            wandb.log(metrics_output)
+            if not args.disable_wandb: wandb.log(metrics_output)
             print(f'---- Evaluation metrics: {metrics_output} ----')
-        
 
 
-def evaluate(model, dataloader, conf_thres, device):
+def evaluate(model, dataloader, conf_threshold, device):
     model.eval()
 
-    for spectograms, labels in tqdm.tqdm(dataloader, desc="Validating"):
-        spectograms = Variable(spectograms.to(device), requires_grad=False)
+    for spectrograms, labels in tqdm.tqdm(dataloader, desc="Validating"):
+        spectrograms = Variable(spectrograms.to(device), requires_grad=False)
         labels = Variable(labels.float().to(device), requires_grad=False)
 
         with torch.no_grad():
-            outputs = model(spectograms).squeeze()
+            outputs = model(spectrograms).squeeze()
 
-        return labels.eq(outputs >= conf_thres).float().mean()
+        return float(labels.eq(outputs >= conf_threshold).float().mean())
 
 if __name__ == "__main__":
     run()
