@@ -4,6 +4,7 @@ import subprocess
 import torch
 import numpy as np
 
+
 def print_environment_info():
     """
     Prints infos about the environment and the system.
@@ -18,14 +19,16 @@ def print_environment_info():
     # Print poetry package version
     try:
         print(
-            f"Current Version: {subprocess.check_output(['poetry', 'version'], stderr=subprocess.DEVNULL).decode('ascii').strip()}")
+            f"Current Version: {subprocess.check_output(['poetry', 'version'], stderr=subprocess.DEVNULL).decode('ascii').strip()}"
+        )
     except (subprocess.CalledProcessError, FileNotFoundError):
         print("Not using the poetry package")
 
     # Print commit hash if possible
     try:
         print(
-            f"Current Commit Hash: {subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], stderr=subprocess.DEVNULL).decode('ascii').strip()}")
+            f"Current Commit Hash: {subprocess.check_output(['git', 'rev-parse', '--short', 'HEAD'], stderr=subprocess.DEVNULL).decode('ascii').strip()}"
+        )
     except (subprocess.CalledProcessError, FileNotFoundError):
         print("No git or repo found")
 
@@ -51,5 +54,5 @@ def worker_seed_set(worker_id):
     np.random.seed(ss.generate_state(4))
 
     # random
-    worker_seed = torch.initial_seed() % 2 ** 32
+    worker_seed = torch.initial_seed() % 2**32
     random.seed(worker_seed)
