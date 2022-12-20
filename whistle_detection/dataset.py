@@ -52,7 +52,8 @@ class AudioDataset(Dataset):
                 return True
         return False
 
-    def __getitem__(self, _):
+    def __getitem__(self, idx):
+        random.seed(idx)
         filename = random.choice(list(self.audio.keys()))
         waveform = self.audio[filename]
         start_pos = random.randint(0, waveform.shape[1] - self.target_sample_rate * self.chunk_duration)
