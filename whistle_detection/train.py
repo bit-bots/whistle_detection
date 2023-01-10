@@ -10,8 +10,7 @@ from torch.nn import BCEWithLogitsLoss
 from torch.utils.data import DataLoader
 from utils import print_environment_info, provide_determinism
 
-from whistle_detection.model import get_model
-from whistle_detection.utils import worker_seed_set
+from whistle_detection import get_model, worker_seed_set
 
 
 def run():
@@ -60,7 +59,7 @@ def run():
         "--conf_threshold",
         type=float,
         default=0.5,
-        help="Evaluation: Object confidence threshold",
+        help="Evaluation: Whistle confidence threshold",
     )
     parser.add_argument(
         "--seed",

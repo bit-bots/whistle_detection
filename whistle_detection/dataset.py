@@ -1,5 +1,6 @@
 import json
 import os
+import torch
 from torch.utils.data import Dataset
 import torchaudio
 import random
@@ -23,8 +24,8 @@ class AudioDataset(Dataset):
         self.chunk_duration = chunk_duration
         # dict of file name to tuple of waveform and sample rate
         self.audio = {
-            filename: self.resample(
-                *torchaudio.load(os.path.join(self.folder, filename))
+            filename: resample(
+                *torchaudio.load(os.path.join(self.folder, filename)), target_sample_rate
             )
             for filename in self.database.keys()
         }
@@ -42,12 +43,6 @@ class AudioDataset(Dataset):
             files = shuffled_files[split_index:]
 
         return {audio_file["path"]: audio_file["channels"] for audio_file in files}
-
-    def resample(self, waveform, sample_rate):
-        channel = 0
-        return torchaudio.transforms.Resample(sample_rate, self.target_sample_rate)(
-            waveform[channel, :].view(1, -1)
-        )
 
     def __len__(self):
         total_samples = 0
@@ -84,13 +79,22 @@ class AudioDataset(Dataset):
         ]
         label = self.get_label(filename, start_pos)
 
-        # Repeat the mel spectrogram 3 times to match the number of channels to the expected input of the model
-        mel_spectrogram = (
-            torchaudio.transforms.MelSpectrogram(self.target_sample_rate, n_mels=64)(
-                chunk
-            )
-            .log2()
-            .repeat(3, 1, 1)
-        )
+        mel_spectrogram = convert_waveform_to_spectogram(self.target_sample_rate, chunk)
 
         return mel_spectrogram, label
+
+def convert_waveform_to_spectogram(sample_rate: int, chunk: torch.Tensor) -> torch.Tensor:
+    # Repeat the mel spectrogram 3 times to match the number of channels to the expected input of the model
+    return (
+        torchaudio.transforms.MelSpectrogram(sample_rate, n_mels=64)(
+            chunk
+        )
+        .log2()
+        .repeat(3, 1, 1)
+    )
+
+def resample(waveform: torch.Tensor, sample_rate: int, target_sample_rate: int) -> torch.Tensor:
+    channel = 0
+    return torchaudio.transforms.Resample(sample_rate, target_sample_rate)(
+        waveform[channel, :].view(1, -1)
+    )
