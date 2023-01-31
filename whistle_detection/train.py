@@ -173,9 +173,9 @@ def run():
             spectograms = Variable(spectograms.to(device, non_blocking=True))
             labels = Variable(labels.float().to(device), requires_grad=False)
 
-            outputs = model(spectograms).squeeze()
-
-            loss = bce(outputs, labels)
+            outputs = model(spectograms)
+            
+            loss = bce(outputs, labels.unsqueeze(1))
             loss.backward()
 
             if not args.disable_wandb:
@@ -225,7 +225,7 @@ def evaluate(model, dataloader, conf_threshold, device):
         labels = Variable(labels.float().to(device), requires_grad=False)
 
         with torch.no_grad():
-            outputs = model(spectograms).squeeze()
+            outputs = torch.sigmoid(model(spectograms)).squeeze()
 
         print(outputs)
 
