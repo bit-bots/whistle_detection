@@ -18,6 +18,18 @@
                 "--n_cpu=2",
                 "--batch_size=4",
             ]
+        },
+        {
+            "name": "Python: detect.py",
+            "type": "python",
+            "request": "launch",
+            "program": "whistle_detection/detect.py",
+            "console": "integratedTerminal",
+            "justMyCode": true,
+            "args": [
+                "-w=checkpoints/checkpoint_epoch_4.pth",
+                "-i=./data",
+            ]
         }
     ]
 }
