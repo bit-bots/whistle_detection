@@ -12,6 +12,10 @@ from utils import print_environment_info, provide_determinism
 
 from whistle_detection import get_model, worker_seed_set
 
+try:
+    import wandb
+except ImportError:
+    print("Wandb is an optional dependency and currently not installed")
 
 def run():
     print_environment_info()
@@ -88,8 +92,6 @@ def run():
     print(args)
 
     if not args.disable_wandb:
-        import wandb
-
         wandb.init(
             project="bitbots_whistle_detection",
             entity="bitbots",
@@ -224,6 +226,8 @@ def evaluate(model, dataloader, conf_threshold, device):
 
         with torch.no_grad():
             outputs = model(spectograms).squeeze()
+
+        print(outputs)
 
         return float(labels.eq(outputs >= conf_threshold).float().mean())
 

@@ -1,33 +1,35 @@
 import argparse
-import glob
 import os
-from collections import defaultdict
 from typing import Dict, List, Tuple
+import tqdm
 
 import torch
-import torchaudio
+from torch.utils.data import DataLoader
+from torch.autograd import Variable
 
-from .dataset import convert_waveform_to_spectogram, resample
-from .model import get_model
-from .utils import print_environment_info
+from whistle_detection.dataset import DirectoryDataset
+from whistle_detection.model import get_model
+from whistle_detection.utils import print_environment_info
 
 
-def _detect(
-    waveform: torch.Tensor,
-    sample_rate: int,
-    weights_path: os.PathLike,
+def detect(
+    model: torch.nn.Module,
+    device: torch.device,
+    dataloader: DataLoader,
     conf_thresh: float,
-) -> bool:
-    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-    model = get_model(device)
-    model.load_state_dict(torch.load(weights_path, map_location=device))
-    model.eval()
+):
+    for (spectrogram, sample_rate, original_sample_rate, filename, start, end) in tqdm.tqdm(dataloader, desc="Detecting"):
+        spectrogram = Variable(spectrogram, requires_grad=False).to(device)
 
-    spectogram = convert_waveform_to_spectogram(sample_rate, waveform)
-    spectogram = spectogram.to(device)
-    output = model(spectogram).squeeze()
-
-    print(output)
+        with torch.no_grad():
+            output = model(spectrogram)
+        
+        whistles = output >= conf_thresh
+        for i, whistle in enumerate(whistles):
+            if whistle:
+                start_time = int((start[i] / sample_rate[i]) * original_sample_rate[i])
+                end_time = int((end[i] / sample_rate[i]) * original_sample_rate[i])
+                print(f"{filename}: {start_time:.2f} - {end_time:.2f}")
 
 
 def detect_directory(
@@ -36,7 +38,9 @@ def detect_directory(
     sample_rate: int,
     chunk_duration: int,
     conf_thresh: float,
-) -> Dict[str, List[Tuple[int, int]]]:
+    batch_size: int,
+    n_cpu: int,
+):
     """
     Detects whistles in all audio files in the given directory.
 
@@ -50,24 +54,22 @@ def detect_directory(
     :type chunk_duration: int
     :param conf_thresh: Confidence threshold for the detection
     :type conf_thresh: float
-    :return: Dictionary with the audio file as key and a list of tuples with the start and end of the detected whistle
-    :rtype: Dict[str, List[Tuple[int, int]]]
+    :param batch_size: Batch size for the detection
+    :type batch_size: int
+    :param n_cpu: Number of CPU workers to use for the data loaders
+    :type n_cpu: int
     """
-    wav_files = glob.glob(f"{input_directory}/*.wav")
-    result: Dict[str, List[Tuple[int, int]]] = defaultdict(list)
+    dataset = DirectoryDataset(input_directory, sample_rate, chunk_duration)
+    dataloader = DataLoader(
+        dataset, batch_size=batch_size, shuffle=False, num_workers=n_cpu
+    )
 
-    for wav_file in wav_files:
-        waveform, original_sample_rate = torchaudio.load(wav_file)
-        waveform = resample(waveform, original_sample_rate, sample_rate)
+    device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+    model = get_model(device)
+    model.load_state_dict(torch.load(weights_path, map_location=device))
+    model.eval()
 
-        print(waveform.shape)
-
-        for sample in range(0, waveform.shape[1], sample_rate * chunk_duration):
-            chunk = waveform[:, sample : sample + sample_rate * chunk_duration]
-            if _detect(chunk, sample_rate, weights_path, conf_thresh):
-                result[wav_file].append((sample, sample + sample_rate * chunk_duration))
-
-    return result
+    detect(model, device, dataloader, conf_thresh)
 
 
 def _run():
@@ -103,10 +105,28 @@ def _run():
         default=1,
         help="Duration of the chunks in seconds",
     )
+    parser.add_argument(
+        "--batch_size", type=int, default=64, help="Size of the batches"
+    )
+    parser.add_argument(
+        "--n_cpu",
+        type=int,
+        default=8,
+        help="Number of cpu threads to use during batch generation",
+    )
     args = parser.parse_args()
     print(f"Command line arguments: {args}")
 
-    detect_directory(args.input, args.weights, args.sample_rate, args.chunk_duration, args.conf_thres)
+    results = detect_directory(
+        args.input,
+        args.weights,
+        args.sample_rate,
+        args.chunk_duration,
+        args.conf_thres,
+        args.batch_size,
+        args.n_cpu,
+    )
+    print(results)
 
 
 if __name__ == "__main__":

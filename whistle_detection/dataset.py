@@ -3,7 +3,7 @@ import json
 import math
 import os
 import random
-from typing import Dict, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 import torch
 import torchaudio
@@ -28,6 +28,7 @@ class DirectoryDataset(Dataset):
         """
         self.directory: os.PathLike = directory
         self.target_sample_rate: int = target_sample_rate
+        self.chunk_duration: float = chunk_duration
         self.audiofiles: Dict[os.PathLike, Tuple[torch.Tensor, int]] = {
             filename: torchaudio.load(filename)
             for filename in glob.glob(f"{directory}/*.wav")
@@ -61,7 +62,7 @@ class DirectoryDataset(Dataset):
 
         chuck_samples = self.target_sample_rate * self.chunk_duration
         skipped_samples = 0
-        for filename, (waveform, _) in self.audio.items():
+        for filename, waveform in self.audio.items():
             # Check, if the index is in the current file
             if skipped_samples + waveform.shape[1] > idx * chuck_samples:
                 return filename, idx * chuck_samples - skipped_samples
@@ -76,7 +77,7 @@ class DirectoryDataset(Dataset):
 
         :param idx: Index of the item
         :type idx: int
-        :return: Tuple of MEL-spectrogram, sample rate, original sample rate, filename, start, end
+        :return: Tuple of MEL-spectogram, sample rate, original sample rate, filename, start, end
         :rtype: Tuple[torch.Tensor, int, int, os.PathLike, int, int]
         """
         filename: os.PathLike
