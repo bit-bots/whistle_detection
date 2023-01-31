@@ -27,9 +27,9 @@ def detect(
         whistles = output >= conf_thresh
         for i, whistle in enumerate(whistles):
             if whistle:
-                start_time = int((start[i] / sample_rate[i]) * original_sample_rate[i])
-                end_time = int((end[i] / sample_rate[i]) * original_sample_rate[i])
-                print(f"{filename}: {start_time:.2f} - {end_time:.2f}")
+                start_time = start[i] // sample_rate[i]
+                end_time = end[i] // sample_rate[i]
+                print(f"{filename[i]}: {start_time}s - {end_time}s")
 
 
 def detect_directory(
