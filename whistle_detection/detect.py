@@ -22,7 +22,7 @@ def detect(
         spectrogram = Variable(spectrogram, requires_grad=False).to(device)
 
         with torch.no_grad():
-            output = model(spectrogram)
+            output = torch.sigmoid(model(spectrogram)).squeeze()
         
         whistles = output >= conf_thresh
         for i, whistle in enumerate(whistles):
