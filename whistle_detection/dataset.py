@@ -41,8 +41,11 @@ class DirectoryDataset(Dataset):
 
     def __len__(self) -> int:
         total_samples = 0
+        chuck_samples = self.target_sample_rate * self.chunk_duration
         for waveform in self.audio.values():
-            total_samples += waveform.shape[1]
+            total_samples += chuck_samples * math.floor(
+                waveform.shape[1] / chuck_samples
+            )
         duration = total_samples // self.target_sample_rate
         return duration // self.chunk_duration
 
@@ -64,10 +67,13 @@ class DirectoryDataset(Dataset):
         skipped_samples = 0
         for filename, waveform in self.audio.items():
             # Check, if the index is in the current file
-            if skipped_samples + waveform.shape[1] > idx * chuck_samples:
+            total_samples = chuck_samples * math.floor(
+                waveform.shape[1] / chuck_samples
+            )
+            if skipped_samples + total_samples > idx * chuck_samples:
                 return filename, idx * chuck_samples - skipped_samples
             else:
-                skipped_samples += waveform.shape[1]
+                skipped_samples += total_samples
 
     def __getitem__(
         self, idx: int
@@ -97,7 +103,7 @@ class DirectoryDataset(Dataset):
             original_sample_rate,
             filename,
             chunk_start,
-            chunk_start + self.target_sample_rate * self.chunk_duration,
+            chunk_start + int(self.target_sample_rate * self.chunk_duration),
         )
 
 

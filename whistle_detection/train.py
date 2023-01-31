@@ -174,7 +174,7 @@ def run():
             labels = Variable(labels.float().to(device), requires_grad=False)
 
             outputs = model(spectograms)
-            
+
             loss = bce(outputs, labels.unsqueeze(1))
             loss.backward()
 
@@ -226,8 +226,6 @@ def evaluate(model, dataloader, conf_threshold, device):
 
         with torch.no_grad():
             outputs = torch.sigmoid(model(spectograms)).squeeze()
-
-        print(outputs)
 
         return float(labels.eq(outputs >= conf_threshold).float().mean())
 
